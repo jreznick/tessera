@@ -1,0 +1,690 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Tessera</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <style>
+      html,
+      body {
+        margin: 0;
+        padding: 0;
+        width: 100%;
+        height: 100%;
+        background: #f4f4f4;
+        font-family: system-ui, sans-serif;
+        overflow: hidden;
+      }
+
+      #app {
+        width: 95vmin;
+        height: 95vmin;
+        margin: auto;
+        display: flex;
+        flex-wrap: wrap;
+        position: relative;
+      }
+
+      .note-wrapper {
+        position: relative;
+        box-sizing: border-box;
+        padding: 6px;
+      }
+
+      .note-wrapper.editing svg {
+        box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.2),
+          0 8px 20px rgba(0, 0, 0, 0.15);
+      }
+
+      svg {
+        width: 100%;
+        height: 100%;
+        border-radius: 8px;
+      }
+
+      .note-content {
+        width: 100%;
+        height: 100%;
+        padding: 28px 10px 10px 10px;
+        box-sizing: border-box;
+        outline: none;
+        overflow: auto;
+        font-size: 14px;
+        white-space: pre-wrap;
+      }
+
+      .icons {
+        position: absolute;
+        top: 8px;
+        right: 10px;
+        display: flex;
+        gap: 6px;
+        z-index: 3;
+      }
+
+      .icon {
+        width: 14px;
+        height: 14px;
+        cursor: pointer;
+        opacity: 0.6;
+        font-size: 14px;
+        line-height: 14px;
+        text-align: center;
+        user-select: none;
+      }
+
+      .icon:hover {
+        opacity: 1;
+      }
+
+      .palette {
+        position: absolute;
+        top: 22px;
+        right: 0;
+        display: flex;
+        gap: 4px;
+        padding: 4px;
+        background: rgba(255, 255, 255, 0.95);
+        border-radius: 4px;
+        box-shadow: 0 4px 10px rgba(0, 0, 0, 0.15);
+        z-index: 4;
+      }
+
+      .swatch {
+        width: 14px;
+        height: 14px;
+        border-radius: 2px;
+        cursor: pointer;
+      }
+
+      #controls {
+        position: fixed;
+        bottom: 16px;
+        right: 16px;
+        display: flex;
+        gap: 10px;
+        z-index: 10;
+      }
+
+      .control-btn {
+        width: 44px;
+        height: 44px;
+        border-radius: 50%;
+        border: none;
+        background: #222;
+        color: #fff;
+        font-size: 18px;
+        cursor: pointer;
+      }
+
+      .control-btn.glow {
+        box-shadow: 0 0 10px rgba(255, 200, 0, 0.9);
+      }
+
+      #toast {
+        position: fixed;
+        bottom: 24px;
+        left: 50%;
+        transform: translateX(-50%);
+        background: rgba(0, 0, 0, 0.85);
+        color: #fff;
+        padding: 6px 12px;
+        border-radius: 4px;
+        font-size: 13px;
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity 0.2s ease;
+        z-index: 11;
+      }
+
+      #toast.show {
+        opacity: 1;
+      }
+
+      #infoOverlay {
+        position: fixed;
+        top: 50%;
+        left: 50%;
+        width: 95vmin;
+        height: 95vmin;
+        transform: translate(-50%, -50%);
+        background: #ffffff;
+        border-radius: 8px;
+        display: none;
+        z-index: 9;
+        box-sizing: border-box;
+        padding: 28px 10px 10px 10px;
+        font-size: 14px;
+        overflow-y: auto;
+        scrollbar-width: thin;
+        scrollbar-color: #000 transparent;
+        padding-right: 18px;
+      }
+
+      #infoOverlay::-webkit-scrollbar {
+        width: 10px;
+      }
+
+      #infoOverlay::-webkit-scrollbar-track {
+        background: transparent;
+      }
+
+      #infoOverlay::-webkit-scrollbar-thumb {
+        background: #000;
+        border-radius: 50%;
+        min-height: 40px;
+      }
+
+      #infoOverlay.show {
+        display: block;
+      }
+
+      #infoClose {
+        position: absolute;
+        top: 8px;
+        right: 10px;
+        font-size: 14px;
+        cursor: pointer;
+        opacity: 0.6;
+        user-select: none;
+      }
+
+      #infoClose:hover {
+        opacity: 1;
+      }
+
+      #fileInput {
+        display: none;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="app"></div>
+
+    <div id="infoOverlay">
+      <div id="infoClose">✖</div>
+      <p>Tessera lives entirely inside the browser using local storage on your device. It never transmits over the network, never uploads to any server, and never submits your content for processing by any external service. All encryption and decryption operations are performed locally in the browser using the Web Crypto API. For your enjoyment, you may save this HTML file and run locally on your own system or use it on this domain, the effect is the same. Because storage is local and offline, the security of the notes is equivalent to post-its in front of you on your desk. 
+      </p><p>Tessera is intended for easy use as a copy-paste base. Use `#` for non-clipboarded meta-content, and `!` to occlude your secrets. Secrets show as 8 circle bullets on screen but will enter your clipboard as needed.
+      </p><p>When a PIN is set, the PIN is not stored directly. Instead, the PIN is used as input to a key‑derivation function (PBKDF2 with SHA‑256) along with a randomly generated salt. This process produces a cryptographic key that cannot be feasibly reversed to recover the original PIN. The derived key is then used with authenticated encryption (AES‑GCM) to encrypt the note data before it is written to local storage. The encrypted data, initialization vector, and salt are stored locally, but the PIN itself is never saved.
+      </p><p>To read stored notes, the user must provide the correct PIN. The browser derives the same encryption key from the entered PIN and the stored salt, then attempts to decrypt the locally stored data. If the PIN is correct, decryption succeeds and the notes are reconstructed in memory. If the PIN is incorrect, decryption fails and no note content is revealed. At no point is the PIN transmitted or shared; it exists only temporarily in memory during the unlock operation.
+      </p><p>After a PIN is set or an existing PIN is successfully loaded, the browser derives an encryption key from the PIN and immediately begins using that key to transparently protect all note data. Any change made while notes are in edit mode is automatically re‑encrypted in memory and saved back to local storage at regular intervals without further user action. The encrypted data stored on disk is continuously kept in sync with the current contents of the notes, while the decrypted form exists only in memory for the duration of the session. If the page is closed or reloaded, only the encrypted data remains, and access to the notes again requires re‑entering the correct PIN.
+      </p><p>Because local storage is isolated per browser and per device, encrypted notes cannot be accessed from another machine, another browser, or another user account. Clearing browser data  permanently removes the encrypted notes. There is an Import/Export mechanism which will let you store and retrieve a JSON under encryption which requires the same PIN.
+      </p><p>To set a PIN, click the Secure button and enter a four‑digit PIN when prompted.
+      </p><p>To load notes, click the Load button and enter the previously set PIN.</p>
+    </div>
+
+    <div id="controls">
+      <button id="open" class="control-btn" title="Load">🗝️</button>
+      <button id="sort" class="control-btn" title="Sort">⇅</button>
+      <button id="save" class="control-btn glow" title="Secure">🔒</button>
+      <button id="export" class="control-btn" title="Export">💾</button>
+      <button id="add" class="control-btn" title="Add">+</button>
+      <button id="info" class="control-btn" title="Info">?</button>
+    </div>
+
+    <input type="file" id="fileInput" accept=".json" />
+
+    <div id="toast">Copied</div>
+
+    <script>
+      const colors = [
+        "#fff59d",
+        "#ffccbc",
+        "#c8e6c9",
+        "#bbdefb",
+        "#e1bee7",
+      ];
+
+      const defaultColor = "#fff59d";
+      const app = document.getElementById("app");
+      const toast = document.getElementById("toast");
+
+      const addBtn = document.getElementById("add");
+      const saveBtn = document.getElementById("save");
+      const openBtn = document.getElementById("open");
+      const sortBtn = document.getElementById("sort");
+      const exportBtn = document.getElementById("export");
+      const infoBtn = document.getElementById("info");
+      const infoOverlay = document.getElementById("infoOverlay");
+      const infoClose = document.getElementById("infoClose");
+      const fileInput = document.getElementById("fileInput");
+
+      let notes = [];
+      let activeNote = null;
+      let openPalette = null;
+      let pin = null;
+      let cryptoKey = null;
+      let sortMode = 0;
+      let autosaveTimer = null;
+
+      function updateExportButton() {
+        if (cryptoKey) {
+          exportBtn.title = "Export";
+        } else {
+          exportBtn.title = "Import";
+        }
+      }
+
+      function showToast(text = "Copied") {
+        toast.textContent = text;
+        toast.classList.add("show");
+        setTimeout(() => toast.classList.remove("show"), 900);
+      }
+
+      function splitLines(text) {
+        return text.split(/\r?\n/);
+      }
+
+      function maskText(text) {
+        return splitLines(text)
+          .map((l) => (l.startsWith("!") ? "●●●●●●●●" : l))
+          .join("\n");
+      }
+
+      function clipboardText(text) {
+        return splitLines(text)
+          .filter((l) => !l.startsWith("#"))
+          .map((l) => (l.startsWith("!") ? l.slice(1) : l))
+          .join("\n");
+      }
+
+      function sortKey(text) {
+        for (const l of splitLines(text)) {
+          if (!l.trim()) continue;
+          if (l.startsWith("#")) return l.slice(1).trim().toLowerCase();
+          if (l.startsWith("!")) return l.slice(1).trim().toLowerCase();
+          return l.trim().toLowerCase();
+        }
+        return "";
+      }
+
+      function updateGrid() {
+        const count = notes.length;
+        const size = Math.ceil(Math.sqrt(count));
+        const basis = 100 / size;
+        notes.forEach((n) => {
+          n.style.flex = `0 0 ${basis}%`;
+          n.style.height = `${basis}%`;
+        });
+      }
+
+      function clearEditing() {
+        notes.forEach((n) => {
+          n.classList.remove("editing");
+          const c = n.querySelector(".note-content");
+          c.contentEditable = "false";
+          c.innerText = maskText(c.dataset.raw || "");
+        });
+        activeNote = null;
+      }
+
+      function closePalette() {
+        if (openPalette) {
+          openPalette.remove();
+          openPalette = null;
+        }
+      }
+
+      async function deriveKey(pin, salt) {
+        const enc = new TextEncoder();
+        const baseKey = await crypto.subtle.importKey(
+          "raw",
+          enc.encode(pin),
+          "PBKDF2",
+          false,
+          ["deriveKey"],
+        );
+        return crypto.subtle.deriveKey(
+          {
+            name: "PBKDF2",
+            salt,
+            iterations: 100000,
+            hash: "SHA-256",
+          },
+          baseKey,
+          { name: "AES-GCM", length: 256 },
+          false,
+          ["encrypt", "decrypt"],
+        );
+      }
+
+      async function encryptData(data) {
+        const enc = new TextEncoder();
+        const iv = crypto.getRandomValues(new Uint8Array(12));
+        const ciphertext = await crypto.subtle.encrypt(
+          { name: "AES-GCM", iv },
+          cryptoKey,
+          enc.encode(JSON.stringify(data)),
+        );
+        return {
+          iv: Array.from(iv),
+          data: Array.from(new Uint8Array(ciphertext)),
+        };
+      }
+
+      async function decryptData(payload) {
+        const dec = new TextDecoder();
+        const iv = new Uint8Array(payload.iv);
+        const data = new Uint8Array(payload.data);
+        const plaintext = await crypto.subtle.decrypt(
+          { name: "AES-GCM", iv },
+          cryptoKey,
+          data,
+        );
+        return JSON.parse(dec.decode(plaintext));
+      }
+
+      function serializeNotes() {
+        return notes.map((n, i) => ({
+          order: i,
+          text: n.querySelector(".note-content").dataset.raw || "",
+          color: n.querySelector("rect").getAttribute("fill"),
+        }));
+      }
+
+      async function saveNotes() {
+        if (!cryptoKey) return;
+        const payload = await encryptData(serializeNotes());
+        localStorage.setItem("notes", JSON.stringify(payload));
+      }
+
+      function startAutosave() {
+        if (autosaveTimer) return;
+        autosaveTimer = setInterval(saveNotes, 1000);
+      }
+
+      function applySort() {
+        let sorted = [...notes];
+        if (sortMode === 1) {
+          sorted.sort((a, b) =>
+            a
+              .querySelector("rect")
+              .getAttribute("fill")
+              .localeCompare(b.querySelector("rect").getAttribute("fill")),
+          );
+        }
+        if (sortMode === 2) {
+          sorted.sort((a, b) =>
+            sortKey(
+              a.querySelector(".note-content").dataset.raw || "",
+            ).localeCompare(
+              sortKey(
+                b.querySelector(".note-content").dataset.raw || "",
+              ),
+            ),
+          );
+        }
+        sorted.forEach((n) => app.appendChild(n));
+        notes = sorted;
+      }
+
+      function createNote(text = "", color = defaultColor, autoEdit = false) {
+        const wrapper = document.createElement("div");
+        wrapper.className = "note-wrapper";
+
+        const icons = document.createElement("div");
+        icons.className = "icons";
+
+        const editIcon = document.createElement("div");
+        editIcon.className = "icon";
+        editIcon.textContent = "✎";
+
+        const copyIcon = document.createElement("div");
+        copyIcon.className = "icon";
+        copyIcon.textContent = "⧉";
+
+        const colorIcon = document.createElement("div");
+        colorIcon.className = "icon";
+        colorIcon.textContent = "▦";
+
+        const deleteIcon = document.createElement("div");
+        deleteIcon.className = "icon";
+        deleteIcon.textContent = "⊗";
+
+        icons.append(editIcon, copyIcon, colorIcon, deleteIcon);
+
+        const svg = document.createElementNS(
+          "http://www.w3.org/2000/svg",
+          "svg",
+        );
+        const rect = document.createElementNS(
+          "http://www.w3.org/2000/svg",
+          "rect",
+        );
+        rect.setAttribute("width", "100%");
+        rect.setAttribute("height", "100%");
+        rect.setAttribute("rx", "8");
+        rect.setAttribute("ry", "8");
+        rect.setAttribute("fill", color);
+
+        const foreign = document.createElementNS(
+          "http://www.w3.org/2000/svg",
+          "foreignObject",
+        );
+        foreign.setAttribute("width", "100%");
+        foreign.setAttribute("height", "100%");
+
+        const content = document.createElement("div");
+        content.className = "note-content";
+        content.dataset.raw = text;
+        content.innerText = maskText(text);
+        content.contentEditable = "false";
+
+        foreign.appendChild(content);
+        svg.append(rect, foreign);
+
+        editIcon.onclick = () => {
+          closePalette();
+          clearEditing();
+          wrapper.classList.add("editing");
+          content.contentEditable = "true";
+          content.innerText = content.dataset.raw || "";
+          content.focus();
+          activeNote = wrapper;
+          if (cryptoKey) startAutosave();
+        };
+
+        content.oninput = () => {
+          content.dataset.raw = content.innerText;
+        };
+
+        copyIcon.onclick = () => {
+          navigator.clipboard.writeText(
+            clipboardText(content.dataset.raw || ""),
+          );
+          showToast();
+        };
+
+        deleteIcon.onclick = () => {
+          const ok = confirm("Confirm");
+          if (!ok) return;
+          notes = notes.filter((n) => n !== wrapper);
+          wrapper.remove();
+          updateGrid();
+          if (cryptoKey) saveNotes();
+        };
+
+        colorIcon.onclick = (e) => {
+          e.stopPropagation();
+          closePalette();
+          const palette = document.createElement("div");
+          palette.className = "palette";
+          colors.forEach((c) => {
+            const swatch = document.createElement("div");
+            swatch.className = "swatch";
+            swatch.style.background = c;
+            swatch.onclick = () => {
+              rect.setAttribute("fill", c);
+              closePalette();
+            };
+            palette.appendChild(swatch);
+          });
+          icons.appendChild(palette);
+          openPalette = palette;
+        };
+
+        wrapper.append(svg, icons);
+        app.appendChild(wrapper);
+        notes.push(wrapper);
+        updateGrid();
+
+        if (autoEdit) editIcon.click();
+      }
+
+      addBtn.onclick = () => createNote("", defaultColor, true);
+
+      saveBtn.onclick = async () => {
+        if (!pin) {
+          const input = prompt("Set a PIN");
+          if (!input || !/^\d{4}$/.test(input)) return;
+          pin = input;
+          const salt = crypto.getRandomValues(new Uint8Array(16));
+          localStorage.setItem("salt", JSON.stringify(Array.from(salt)));
+          cryptoKey = await deriveKey(pin, salt);
+          saveBtn.classList.remove("glow");
+          startAutosave();
+          await saveNotes();
+          updateExportButton();
+        }
+      };
+
+      openBtn.onclick = () => {
+        const input = prompt("Enter PIN");
+        if (!input) return;
+        const stored = localStorage.getItem("notes");
+        const saltRaw = localStorage.getItem("salt");
+        if (!stored || !saltRaw) return;
+        (async () => {
+          try {
+            const salt = new Uint8Array(JSON.parse(saltRaw));
+            cryptoKey = await deriveKey(input, salt);
+            const data = await decryptData(JSON.parse(stored));
+            app.innerHTML = "";
+            notes = [];
+            data.forEach((n) => createNote(n.text, n.color));
+            pin = input;
+            saveBtn.classList.remove("glow");
+            startAutosave();
+            updateExportButton();
+          } catch {
+            showToast("Invalid PIN");
+          }
+        })();
+      };
+
+      sortBtn.onclick = () => {
+        sortMode = (sortMode + 1) % 3;
+        applySort();
+      };
+
+      exportBtn.onclick = async () => {
+        if (cryptoKey) {
+          const input = prompt("Enter PIN to export");
+          if (!input || input !== pin) {
+            showToast("Invalid PIN");
+            return;
+          }
+          const stored = localStorage.getItem("notes");
+          const saltRaw = localStorage.getItem("salt");
+          if (!stored || !saltRaw) {
+            showToast("No data to export");
+            return;
+          }
+          const exportData = {
+            salt: JSON.parse(saltRaw),
+            notes: JSON.parse(stored),
+          };
+          const blob = new Blob([JSON.stringify(exportData, null, 2)], {
+            type: "application/json",
+          });
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement("a");
+          a.href = url;
+          a.download = "notes-backup.json";
+          a.click();
+          URL.revokeObjectURL(url);
+          showToast("Exported");
+        } else {
+          fileInput.click();
+        }
+      };
+
+      fileInput.onchange = async (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+
+        reader.onload = async (event) => {
+          try {
+            const importData = JSON.parse(event.target.result);
+
+            if (!importData.salt || !importData.notes) {
+              showToast("Invalid file format");
+              return;
+            }
+
+            // Prompt AFTER file is loaded
+            const input = prompt("Enter PIN for this file");
+            if (!input || !/^\d{4}$/.test(input)) return;
+
+            // Derive key from the FILE'S salt (not local state)
+            const salt = new Uint8Array(importData.salt);
+            const derivedKey = await deriveKey(input, salt);
+
+            // Temporarily assign for decryption attempt
+            cryptoKey = derivedKey;
+
+            const data = await decryptData(importData.notes);
+
+            // If decrypt succeeds, commit everything
+            app.innerHTML = "";
+            notes = [];
+            data.forEach((n) => createNote(n.text, n.color));
+
+            pin = input;
+
+            localStorage.setItem("salt", JSON.stringify(importData.salt));
+            localStorage.setItem("notes", JSON.stringify(importData.notes));
+
+            saveBtn.classList.remove("glow");
+            startAutosave();
+            updateExportButton();
+            showToast("Imported");
+          } catch {
+            cryptoKey = null;
+            pin = null;
+            showToast("Invalid file or PIN");
+          }
+        };
+
+        reader.readAsText(file);
+        fileInput.value = "";
+      };
+
+      infoBtn.onclick = () => {
+        infoOverlay.classList.add("show");
+      };
+
+      infoClose.onclick = () => {
+        infoOverlay.classList.remove("show");
+      };
+
+      document.addEventListener("keydown", (e) => {
+        if (e.key === "Escape") infoOverlay.classList.remove("show");
+      });
+
+      document.addEventListener("click", (e) => {
+        if (activeNote && !activeNote.contains(e.target)) {
+          clearEditing();
+        }
+        if (openPalette && !openPalette.contains(e.target)) {
+          closePalette();
+        }
+      });
+
+      createNote();
+      updateExportButton();
+    </script>
+  </body>
+</html>
